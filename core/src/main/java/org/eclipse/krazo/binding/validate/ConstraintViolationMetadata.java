@@ -36,19 +36,17 @@ import java.util.Optional;
 public class ConstraintViolationMetadata {
 
     private final ConstraintViolation<?> violation;
+    private final boolean mvcBoundConstraint;
     private final Annotation[] annotations;
 
-    public ConstraintViolationMetadata(ConstraintViolation<?> violation, Annotation[] annotations) {
+    public ConstraintViolationMetadata(ConstraintViolation<?> violation, Annotation[] annotations, boolean mvcBoundConstraint) {
         this.violation = Objects.requireNonNull(violation, "violations");
         this.annotations = Objects.requireNonNull(annotations, "annotations");
+        this.mvcBoundConstraint = mvcBoundConstraint;
     }
 
-    public Optional<Annotation> getAnnotation(Class<Annotation> type) {
-        return Arrays.stream(annotations).filter(a -> a.annotationType().equals(type)).findFirst();
-    }
-
-    public boolean hasAnnotation(Class<? extends Annotation> type) {
-        return Arrays.stream(annotations).anyMatch(a -> a.annotationType().equals(type));
+    public boolean isMvcBoundConstraint() {
+        return mvcBoundConstraint;
     }
 
     public Optional<String> getParamName() {

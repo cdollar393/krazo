@@ -17,6 +17,7 @@
  */
 package org.eclipse.krazo.binding.validate;
 
+import javax.mvc.binding.MvcBinding;
 import javax.validation.ConstraintViolation;
 import javax.validation.ElementKind;
 import javax.validation.Path;
@@ -50,14 +51,17 @@ public class ConstraintViolations {
 
     public static ConstraintViolationMetadata getMetadata(ConstraintViolation<?> violation) {
 
-        Annotation[] annotations = getAnnotations(violation);
+        final ViolatedObject violatedObject = getViolatedObjectDetails(violation);
 
-        return new ConstraintViolationMetadata(violation, annotations);
+        return new ConstraintViolationMetadata(violation, violatedObject.annotations, violatedObject.mvcBoundViolation);
 
     }
 
-    private static Annotation[] getAnnotations(ConstraintViolation<?> violation) {
+    private static boolean hasAnnotation(Annotation[] annotations, Class<? extends Annotation> type) {
+        return Arrays.stream(annotations).anyMatch(a -> a.annotationType().equals(type));
+    }
 
+    private static ViolatedObject getViolatedObjectDetails(ConstraintViolation<?> violation) {
 
         // create a simple list of nodes from the path
         List<Path.Node> nodes = new ArrayList<>();
@@ -70,7 +74,17 @@ public class ConstraintViolations {
         if (lastNode.getKind() == ElementKind.PROPERTY) {
 
             Path.PropertyNode propertyNode = lastNode.as(Path.PropertyNode.class);
-            return getPropertyAnnotations(violation, propertyNode);
+
+            Annotation[] annotations = getPropertyAnnotations(violation, propertyNode);
+
+            // the property is MVC bound for validation if it has an @MvcBinding annotation
+            // or if the leaf bean is annotated with @KrazoValidated with the FIELDS_ONLY or
+            // ALL scope
+            KrazoValidated krazoValidated = extractViolationClass(violation.getLeafBean().getClass()).getAnnotation(KrazoValidated.class);
+            boolean mvcBoundConstraint = hasAnnotation(annotations, MvcBinding.class)
+                || (krazoValidated != null && (krazoValidated.validationScope() == KrazoValidatedScope.ALL || krazoValidated.validationScope() == KrazoValidatedScope.FIELDS_ONLY));
+
+            return new ViolatedObject(annotations, mvcBoundConstraint);
 
         }
 
@@ -80,20 +94,52 @@ public class ConstraintViolations {
             Path.MethodNode methodNode = nodes.get(0).as(Path.MethodNode.class);
             Path.ParameterNode parameterNode = nodes.get(1).as(Path.ParameterNode.class);
 
-            return getParameterAnnotations(violation, methodNode, parameterNode);
+            return new ViolatedObject(getParameterAnnotations(violation, methodNode, parameterNode), false);
+
+        }
+
+        // The path refers to bean-level constraint on a method parameter
+        else if (lastNode.getKind() == ElementKind.BEAN && nodes.size() == 3) {
+
+            Class<?> invalidClass = extractViolationClass(violation.getInvalidValue().getClass());
+
+            Annotation[] annotations = invalidClass.getAnnotations();
+
+            // the property is MVC bound for validation if the invalid class is annotated with @KrazoValidated
+            // with the TYPE_ONLY or ALL scope
+            KrazoValidated krazoValidated = invalidClass.getAnnotation(KrazoValidated.class);
+            boolean mvcBoundConstraint = hasAnnotation(annotations, MvcBinding.class)
+                || (krazoValidated != null && (krazoValidated.validationScope() == KrazoValidatedScope.ALL || krazoValidated.validationScope() == KrazoValidatedScope.TYPE_ONLY));
+
+            return new ViolatedObject(annotations, mvcBoundConstraint);
 
         }
 
 
         log.warning("Could not read annotations for path: " + violation.getPropertyPath().toString());
-        return new Annotation[0];
+        return new ViolatedObject(new Annotation[0], false);
 
     }
 
+    /**
+     * Extracts and returns the un-proxied parent class for the constraint
+     * violation.
+     * <p>
+     * Background: Under Weld CDI the invalid value class will likely be a proxy
+     * class instead of the real class. We need the real class, as the Weld
+     * proxy won't include the same annotations as the real class. In the case
+     * of a proxy class the invalid value class will be synthetic, and the
+     * superclass will be the real class that we're interested in.
+     *
+     * @return the violated parent class
+     */
+    private static Class<?> extractViolationClass(final Class<?> possiblyProxiedClass) {
+        return possiblyProxiedClass.isSynthetic() ? possiblyProxiedClass.getSuperclass() : possiblyProxiedClass;
+    }
 
     private static Annotation[] getPropertyAnnotations(ConstraintViolation<?> violation, Path.PropertyNode node) {
 
-        Class<?> leafBeanClass = violation.getLeafBean().getClass();
+        Class<?> leafBeanClass = extractViolationClass(violation.getLeafBean().getClass());
         Set<Annotation> allAnnotations = new HashSet<>();
         try {
 
@@ -177,4 +223,14 @@ public class ConstraintViolations {
         return annotationsSet;
     }
 
+    private static class ViolatedObject {
+
+        private final Annotation[] annotations;
+        private final boolean mvcBoundViolation;
+
+        ViolatedObject(final Annotation[] annotations, final boolean mvcBoundViolation) {
+            this.annotations = annotations;
+            this.mvcBoundViolation = mvcBoundViolation;
+        }
+    }
 }

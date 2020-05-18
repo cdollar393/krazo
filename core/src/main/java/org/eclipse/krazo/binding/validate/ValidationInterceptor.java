@@ -116,13 +116,15 @@ public class ValidationInterceptor implements Serializable {
         Set<ValidationError> validationErrors = new LinkedHashSet<>();
 
         for (ConstraintViolation<Object> violation : violations) {
-
             ConstraintViolationMetadata metadata = ConstraintViolations.getMetadata(violation);
 
             // MVC bindings
-            if (metadata.hasAnnotation(MvcBinding.class)) {
+            if (metadata.isMvcBoundConstraint()) {
 
                 String paramName = metadata.getParamName().orElse(null);
+                // TODO the paramName will be null for a type-level validation problem, so this should
+                // probably be removed. A better solution might be to modify the binding result to have
+                // a list of type-level constraint errors separate from the param errors.
                 if (paramName == null) {
                     log.log(Level.WARNING, "Cannot resolve paramName for violation: {0}", violation);
                 }

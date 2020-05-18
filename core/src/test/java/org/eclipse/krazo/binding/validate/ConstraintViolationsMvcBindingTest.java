@@ -109,14 +109,6 @@ public class ConstraintViolationsMvcBindingTest {
         assertTrue("Violation metadata should contain the violated param name", metadataViolatedParamName.isPresent());
         assertEquals("Metadata violated param should be 'firstName'", "firstName", metadataViolatedParamName.get());
 
-        // lastly, test for our MVC-ish annotations based on our constraint violation
-        // metadata. we should find @MvcBinding from the getter method for firstName,
-        // and @FormParam from the setter. Also test for annotations that we expect to
-        // NOT be present
-        assertTrue("@MvcBinding should be found on 'firstName'", metadata.hasAnnotation(MvcBinding.class));
-        assertTrue("@FormParam should be found on 'firstName'", metadata.hasAnnotation(FormParam.class));
-        assertFalse("@Pattern should not be found on 'firstName'", metadata.hasAnnotation(Pattern.class));
-
     }
 
     /**
@@ -148,14 +140,6 @@ public class ConstraintViolationsMvcBindingTest {
         assertTrue("Violation metadata should contain the violated param name", metadataViolatedParamName.isPresent());
         assertEquals("Metadata violated param should be 'lastName'", "lastName", metadataViolatedParamName.get());
 
-        // lastly, test for our MVC-ish annotations based on our constraint violation
-        // metadata. we should find @MvcBinding from the getter method for lastName,
-        // and @FormParam from the setter. Also test for annotations that we expect to
-        // NOT be present
-        assertTrue("@MvcBinding should be found on 'lastName'", metadata.hasAnnotation(MvcBinding.class));
-        assertTrue("@FormParam should be found on 'lastName'", metadata.hasAnnotation(FormParam.class));
-        assertFalse("@Pattern should not be found on 'lastName'", metadata.hasAnnotation(Pattern.class));
-
     }
 
     /**
@@ -183,13 +167,10 @@ public class ConstraintViolationsMvcBindingTest {
         assertNotNull("Violation metadata should not be null", metadata);
 
         // our metadata should be able to resolve our violated param name properly
-        // (the property 'name' has the annotation @FormParam), but it won't be able to
-        // locate the @MvcBinding on the name() method since it is not a valid
-        // java beans getter.
+        // (the property 'name' has the annotation @FormParam)
         final Optional<String> metadataViolatedParamName = metadata.getParamName();
         assertTrue("Violation metadata should contain the violated field name", metadataViolatedParamName.isPresent());
         assertEquals("Metadata violated field should be 'name'", "name", metadataViolatedParamName.get());
-        assertFalse("@MvcBinding should not be found on 'name'", metadata.hasAnnotation(MvcBinding.class));
 
     }
 }
