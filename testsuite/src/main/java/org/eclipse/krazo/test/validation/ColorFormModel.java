@@ -1,9 +1,12 @@
 package org.eclipse.krazo.test.validation;
 
+import org.eclipse.krazo.binding.validate.KrazoValidated;
+
 import javax.mvc.binding.MvcBinding;
 import javax.validation.constraints.NotBlank;
 import javax.ws.rs.FormParam;
 
+@KrazoValidated
 @GoodColor
 public class ColorFormModel {
 
